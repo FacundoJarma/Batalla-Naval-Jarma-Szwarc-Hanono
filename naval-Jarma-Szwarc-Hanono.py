@@ -1,3 +1,5 @@
+import os
+
 N: int = 10
 
 from colorama import Fore, Back, Style, init
@@ -16,9 +18,7 @@ class Barco:
 class Tablero:
     def __init__(self, tamaño: int):
         self.tamaño = tamaño
-        # Matriz para los barcos (True si hay barco)
         self.matriz_barcos = [[False for _ in range(tamaño)] for _ in range(tamaño)]
-        # Matriz para marcar los disparos: "⬛" celda sin disparo, "🔲" impacto, "🔳" fallo
         self.matriz_marcada = [["⬛" for _ in range(tamaño)] for _ in range(tamaño)]
     
     def colocar_barco(self, barco: Barco) -> bool:
@@ -33,7 +33,6 @@ class Tablero:
             print(Fore.RED + "Orientación inválida. Usa 'h' para horizontal o 'v' para vertical.")
             return False
 
-        # Verificar que el barco no se salga del tablero y no colisione con otro barco
         for i in range(barco.longitud):
             nx = barco.x + i * dx
             ny = barco.y + i * dy
@@ -45,40 +44,30 @@ class Tablero:
                 print(Fore.RED + f"Ya hay un barco en X: {nx}, Y: {ny}")
                 return False
 
-        # Colocar el barco en la matriz
         for i in range(barco.longitud):
             nx = barco.x + i * dx
             ny = barco.y + i * dy
             self.matriz_barcos[ny][nx] = True
 
+        self.graficar(show_ships=True)
         return True
 
     def graficar(self, show_ships: bool = False) -> None:
-        # Definir colores para cada símbolo
-        # ⬛: celda sin disparo, se muestra en gris
-        # 🚢: barco, se muestra en azul
-        # 🔲: impacto, se muestra en rojo
-        # 🔳: disparo fallido, se muestra en amarillo
         for i in range(self.tamaño):
             fila = []
             for j in range(self.tamaño):
                 celda = self.matriz_marcada[i][j]
-                if celda != "⬛":
-                    # Si ya fue disparada, usamos el color según el resultado.
-                    if celda == "🔲":
-                        fila.append(Fore.RED + celda + Style.RESET_ALL)
-                    elif celda == "🔳":
-                        fila.append(Fore.YELLOW + celda + Style.RESET_ALL)
+                
+                if celda == "⬛":
+                    if show_ships and self.matriz_barcos[i][j]:
+                        fila.append("🚢")
                     else:
                         fila.append(celda)
                 else:
-                    # Si se desea ver los barcos (modo depuración) y hay barco, se muestra en azul.
-                    if show_ships and self.matriz_barcos[i][j]:
-                        fila.append(Fore.CYAN + "🚢" + Style.RESET_ALL)
-                    else:
-                        fila.append(Fore.WHITE + celda + Style.RESET_ALL)
-            print(" ".join(fila))
-    
+                    fila.append(celda)
+            
+            print(" ".join(fila))    
+
     def recibir_disparo(self, x: int, y: int) -> (bool, str):
         if not (0 <= y < self.tamaño and 0 <= x < self.tamaño):
             return False, Fore.RED + "Coordenadas fuera del rango." + Style.RESET_ALL
@@ -102,14 +91,57 @@ class Jugador:
         self.pedazos_barcos_restantes = 0
     
     def colocar_barcos(self):
+        # print(f"\n\n{Fore.MAGENTA}[!] {self.nombre}: Momento de poner tus barcos.{Style.RESET_ALL}")
+        # barcos_colocados = 0
+        # while barcos_colocados < self.cantidad_barcos:
+        #     try:
+        #         x = int(input(f"{self.nombre} - X inicial del barco: "))
+        #         y = int(input(f"{self.nombre} - Y inicial del barco: "))
+        #         orientacion = input(f"{self.nombre} - Orientación (h para horizontal, v para vertical): ").lower()
+        #         longitud = int(input(f"{self.nombre} - Longitud del barco: "))
+        #         self.pedazos_barcos_restantes += longitud
+        #     except ValueError:
+        #         print(Fore.RED + "Entrada inválida. Intenta de nuevo." + Style.RESET_ALL)
+        #         continue
+
+        #     barco = Barco(x, y, orientacion, longitud)
+        #     if self.tablero.colocar_barco(barco):
+        #         barcos_colocados += 1
+        #         print(Fore.GREEN + f"[+] Barco colocado: {barco}" + Style.RESET_ALL)
+        #     else:
+        #         print(Fore.RED + "[-] No se pudo colocar el barco. Intenta de nuevo." + Style.RESET_ALL)
+
         print(f"\n\n{Fore.MAGENTA}[!] {self.nombre}: Momento de poner tus barcos.{Style.RESET_ALL}")
         barcos_colocados = 0
         while barcos_colocados < self.cantidad_barcos:
+            confirmed: bool = False
+            orientacion = input(f"{self.nombre} - Orientación (h para horizontal, v para vertical): ").lower()
+            longitud = int(input(f"{self.nombre} - Longitud del barco: "))
+            
+            x = 0
+            y = 0
+            print("Usa las teclas WASD para mover el barco o C para confirmar:")
+
+            while not confirmed:
+                tecla = input("Presiona una tecla: ").lower()  
+                if tecla == 'w':
+                    y -= 1 
+                elif tecla == 'a':
+                    x -= 1
+                elif tecla == 's':
+                    y += 1
+                elif tecla == 'd':
+                    x += 1
+                elif tecla == 'C':
+                    confirmed = True
+
+                self.tablero.graficar()
+
+
             try:
                 x = int(input(f"{self.nombre} - X inicial del barco: "))
                 y = int(input(f"{self.nombre} - Y inicial del barco: "))
-                orientacion = input(f"{self.nombre} - Orientación (h para horizontal, v para vertical): ").lower()
-                longitud = int(input(f"{self.nombre} - Longitud del barco: "))
+                
                 self.pedazos_barcos_restantes += longitud
             except ValueError:
                 print(Fore.RED + "Entrada inválida. Intenta de nuevo." + Style.RESET_ALL)
@@ -121,6 +153,7 @@ class Jugador:
                 print(Fore.GREEN + f"[+] Barco colocado: {barco}" + Style.RESET_ALL)
             else:
                 print(Fore.RED + "[-] No se pudo colocar el barco. Intenta de nuevo." + Style.RESET_ALL)
+
 
     def jugar_turno(self, adversario: 'Jugador') -> bool:
         try:
@@ -146,18 +179,23 @@ def main():
     intentos_iniciales = 20
     cantidad_barcos = 4
 
-    # Crear jugadores
     jugador1 = Jugador("Jugador 1", tamaño, intentos_iniciales, cantidad_barcos)
     jugador2 = Jugador("Jugador 2", tamaño, intentos_iniciales, cantidad_barcos)
 
-    # Cada jugador coloca sus barcos
     jugador1.colocar_barcos()
     jugador1.tablero.graficar(show_ships=True)
+
+    input("Chequealo, si esta bien toca cualquier tecla: ")
+    os.system("clear")
+
     jugador2.colocar_barcos()
     jugador2.tablero.graficar(show_ships=True)
 
+    input("Chequealo, si esta bien toca cualquier tecla: ")
+    os.system("clear")
+
+
     print(f"\n{Fore.MAGENTA}[!] ¡Momento de JUGAR!{Style.RESET_ALL}\n")
-    turno = 1  # 1 para jugador1 y 2 para jugador2
 
     while jugador1.intentos > 0 and jugador2.intentos > 0:
         if turno == 1:
