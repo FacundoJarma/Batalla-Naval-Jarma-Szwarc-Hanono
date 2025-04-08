@@ -1,4 +1,5 @@
 import os
+import msvcrt
 
 N: int = 10
 
@@ -82,6 +83,59 @@ class Tablero:
             self.matriz_marcada[y][x] = "🔳"
             return False, Fore.CYAN + "¡Uops! No había un barco." + Style.RESET_ALL
 
+    def graficar_placeholder_de_barcos(self, barco):
+        matriz_placeholder_barcos = [[False for _ in range(self.tamaño)] for _ in range(self.tamaño)]
+
+        # Copiamos los barcos ya colocados
+        for y in range(self.tamaño):
+            for x in range(self.tamaño):
+                if self.matriz_barcos[y][x]:
+                    matriz_placeholder_barcos[y][x] = True
+
+        dx = 0
+        dy = 0
+
+        if barco.orientacion == "h":
+            dx = 1
+        elif barco.orientacion == "v":
+            dy = 1
+
+        valor = True
+        for i in range(barco.longitud):
+            nx = barco.x + i * dx
+            ny = barco.y + i * dy
+            if not (0 <= nx < self.tamaño and 0 <= ny < self.tamaño):
+                print(Fore.RED + "El barco se sale del tablero.")
+                return False
+            
+            if self.matriz_barcos[ny][nx]:
+                
+                print(Fore.RED + f"Ya hay un barco en X: {nx}, Y: {ny}")
+            
+                return False
+        for i in range(barco.longitud):
+                nx = barco.x + i * dx
+                ny = barco.y + i * dy
+                matriz_placeholder_barcos[ny][nx] = True    
+
+        for i in range(self.tamaño):
+            fila = []
+            for j in range(self.tamaño):
+                celda = self.matriz_marcada[i][j]
+                
+                if celda == "⬛":
+                    if  matriz_placeholder_barcos[i][j]:
+                        fila.append("🚢")
+                    else:
+                        fila.append(celda)
+                else:
+                    fila.append(celda)
+            
+            print(" ".join(fila))  
+            
+        return True  
+    
+
 class Jugador:
     def __init__(self, nombre: str, tamaño_tablero: int, intentos: int, cantidad_barcos: int):
         self.nombre = nombre
@@ -91,31 +145,11 @@ class Jugador:
         self.pedazos_barcos_restantes = 0
     
     def colocar_barcos(self):
-        # print(f"\n\n{Fore.MAGENTA}[!] {self.nombre}: Momento de poner tus barcos.{Style.RESET_ALL}")
-        # barcos_colocados = 0
-        # while barcos_colocados < self.cantidad_barcos:
-        #     try:
-        #         x = int(input(f"{self.nombre} - X inicial del barco: "))
-        #         y = int(input(f"{self.nombre} - Y inicial del barco: "))
-        #         orientacion = input(f"{self.nombre} - Orientación (h para horizontal, v para vertical): ").lower()
-        #         longitud = int(input(f"{self.nombre} - Longitud del barco: "))
-        #         self.pedazos_barcos_restantes += longitud
-        #     except ValueError:
-        #         print(Fore.RED + "Entrada inválida. Intenta de nuevo." + Style.RESET_ALL)
-        #         continue
-
-        #     barco = Barco(x, y, orientacion, longitud)
-        #     if self.tablero.colocar_barco(barco):
-        #         barcos_colocados += 1
-        #         print(Fore.GREEN + f"[+] Barco colocado: {barco}" + Style.RESET_ALL)
-        #     else:
-        #         print(Fore.RED + "[-] No se pudo colocar el barco. Intenta de nuevo." + Style.RESET_ALL)
-
         print(f"\n\n{Fore.MAGENTA}[!] {self.nombre}: Momento de poner tus barcos.{Style.RESET_ALL}")
         barcos_colocados = 0
         while barcos_colocados < self.cantidad_barcos:
             confirmed: bool = False
-            orientacion = input(f"{self.nombre} - Orientación (h para horizontal, v para vertical): ").lower()
+            orientacion = "h"
             longitud = int(input(f"{self.nombre} - Longitud del barco: "))
             
             x = 0
@@ -123,37 +157,48 @@ class Jugador:
             print("Usa las teclas WASD para mover el barco o C para confirmar:")
 
             while not confirmed:
-                tecla = input("Presiona una tecla: ").lower()  
-                if tecla == 'w':
-                    y -= 1 
-                elif tecla == 'a':
-                    x -= 1
-                elif tecla == 's':
-                    y += 1
-                elif tecla == 'd':
-                    x += 1
-                elif tecla == 'C':
-                    confirmed = True
+                if msvcrt.kbhit():
+                    os.system("cls" if os.name == "nt" else "clear")
+                    tecla = msvcrt.getch().decode('utf-8').lower()
+                    
+                    if tecla == 'w':
+                        y -= 1
+                    elif tecla == 'a':
+                        x -= 1
+                    elif tecla == 's':
+                        y += 1
+                    elif tecla == 'd':
+                        x += 1
+                    elif tecla == 'r':
+                        if orientacion == "v":
+                            orientacion = "h"
+                        elif orientacion == "h":
+                            orientacion = "v"
+                    preBarco = Barco(x, y, orientacion, longitud)
 
-                self.tablero.graficar()
-
-
-            try:
-                x = int(input(f"{self.nombre} - X inicial del barco: "))
-                y = int(input(f"{self.nombre} - Y inicial del barco: "))
-                
-                self.pedazos_barcos_restantes += longitud
-            except ValueError:
-                print(Fore.RED + "Entrada inválida. Intenta de nuevo." + Style.RESET_ALL)
-                continue
-
-            barco = Barco(x, y, orientacion, longitud)
-            if self.tablero.colocar_barco(barco):
-                barcos_colocados += 1
-                print(Fore.GREEN + f"[+] Barco colocado: {barco}" + Style.RESET_ALL)
-            else:
-                print(Fore.RED + "[-] No se pudo colocar el barco. Intenta de nuevo." + Style.RESET_ALL)
-
+                    if tecla == 'c':
+                        if self.tablero.colocar_barco(preBarco):
+                            confirmed = True
+                            barcos_colocados += 1
+                            self.pedazos_barcos_restantes += longitud
+                            print(Fore.GREEN + f"[+] Barco colocado: {preBarco}" + Style.RESET_ALL)
+                        else:
+                            print(Fore.RED + "[-] No se pudo colocar el barco. Intenta de nuevo." + Style.RESET_ALL)
+                    else:
+                        if not self.tablero.graficar_placeholder_de_barcos(preBarco):
+                            if tecla == 'w':
+                                y += 1 
+                            elif tecla == 'a':
+                                x += 1
+                            elif tecla == 's':
+                                y -= 1
+                            elif tecla == 'd':
+                                x -= 1
+                            elif tecla == 'r':
+                                if orientacion == "v":
+                                    orientacion = "h"
+                                elif orientacion == "h":
+                                    orientacion = "v"
 
     def jugar_turno(self, adversario: 'Jugador') -> bool:
         try:
